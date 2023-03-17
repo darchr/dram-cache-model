@@ -46,7 +46,7 @@ scons build/X86/gem5.opt
     --size <simulation_size/graph_name>
 ```
 """
-
+#./build/X86/gem5.opt configs/example/gem5_library/x86-gabps-benchmarks.py --benchmark bc --synthetic 1 --size 4
 import argparse
 import time
 import sys
@@ -195,7 +195,7 @@ if args.synthetic == "1":
         )
         exit(-1)
 
-    command = "./{} -g {}\n".format(args.benchmark, args.size)
+    command = "./{} -n 1 -g {}\n".format(args.benchmark, args.size)
 else:
     command = "./{} -sf ../{}".format(args.benchmark, args.size)
 

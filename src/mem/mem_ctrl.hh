@@ -100,7 +100,7 @@ class MemPacket
   public:
 
     /** When did request enter the controller */
-    const Tick entryTime;
+    Tick entryTime;
 
     /** When will request leave the controller */
     Tick readyTime;
@@ -501,7 +501,7 @@ class MemCtrl : public qos::MemCtrl
 +    */
     MemInterface* dram;
 
-    virtual AddrRangeList getAddrRanges();
+    // virtual AddrRangeList getAddrRanges();
 
     /**
      * The following are basic design parameters of the memory
@@ -677,6 +677,8 @@ class MemCtrl : public qos::MemCtrl
 
     MemCtrl(const MemCtrlParams &p);
 
+    virtual AddrRangeList getAddrRanges();
+
     /**
      * Ensure that all interfaced have drained commands
      *
@@ -762,7 +764,7 @@ class MemCtrl : public qos::MemCtrl
      * @param next_state Check either the current or next bus state
      * @return True when bus is currently in a read state
      */
-    bool inReadBusState(bool next_state) const;
+    bool inReadBusState(bool next_state, MemInterface* mem_intr) const;
 
     /**
      * Check the current direction of the memory channel
@@ -770,7 +772,13 @@ class MemCtrl : public qos::MemCtrl
      * @param next_state Check either the current or next bus state
      * @return True when bus is currently in a write state
      */
-    bool inWriteBusState(bool next_state) const;
+    bool inWriteBusState(bool next_state, MemInterface* mem_intr) const;
+
+    uint32_t bytesPerBurst() const;
+
+    Addr burstAlign(Addr addr) const { return burstAlign(addr, dram); }
+
+    void accessAndRespond(PacketPtr pkt, Tick static_latency) { accessAndRespond(pkt, static_latency, dram); }
 
     Port &getPort(const std::string &if_name,
                   PortID idx=InvalidPortID) override;

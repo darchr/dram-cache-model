@@ -38,6 +38,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from builtins import print
 import sys
 from types import FunctionType, MethodType, ModuleType
 from functools import wraps
@@ -1232,7 +1233,9 @@ class SimObject(object, metaclass=MetaSimObject):
     # necessary to construct it.  Does *not* recursively create
     # children.
     def getCCObject(self):
+        # print(self)
         if not self._ccObject:
+            # print(f"{self}: Doing initial creation")
             # Make sure this object is in the configuration hierarchy
             if not self._parent and not isRoot(self):
                 raise RuntimeError("Attempt to instantiate orphan node")
@@ -1242,6 +1245,9 @@ class SimObject(object, metaclass=MetaSimObject):
             if not self.abstract:
                 params = self.getCCParams()
                 self._ccObject = params.create()
+                # print(f"{self}: Actually created")
+            #else: 
+                # print("I am abstract?")
         elif self._ccObject == -1:
             raise RuntimeError(
                 "%s: Cycle found in configuration hierarchy." % self.path()

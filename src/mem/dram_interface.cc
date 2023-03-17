@@ -43,6 +43,8 @@
 #include "base/bitfield.hh"
 #include "base/cprintf.hh"
 #include "base/trace.hh"
+
+#include "debug/DecodePkt.hh"
 #include "debug/DRAM.hh"
 #include "debug/DRAMPower.hh"
 #include "debug/DRAMState.hh"
@@ -662,8 +664,8 @@ DRAMInterface::DRAMInterface(const DRAMInterfaceParams &_p)
 {
     DPRINTF(DRAM, "Setting up DRAM Interface\n");
 
-    fatal_if(!isPowerOf2(burstSize), "DRAM burst size %d is not allowed, "
-             "must be a power of two\n", burstSize);
+    // fatal_if(!isPowerOf2(burstSize), "DRAM burst size %d is not allowed, "
+    //          "must be a power of two\n", burstSize);
 
     // sanity check the ranks since we rely on bit slicing for the
     // address decoding
@@ -905,8 +907,8 @@ DRAMInterface::decodePacket(const PacketPtr pkt, Addr pkt_addr,
     assert(row < rowsPerBank);
     assert(row < Bank::NO_ROW);
 
-    DPRINTF(DRAM, "Address: %#x Rank %d Bank %d Row %d\n",
-            pkt_addr, rank, bank, row);
+    // DPRINTF(DRAM, "Address: %#x Rank %d Bank %d Row %d\n",
+    //         pkt_addr, rank, bank, row);
 
     // create the corresponding memory packet with the entry time and
     // ready time set to the current tick, the latter will be updated
@@ -1068,13 +1070,14 @@ DRAMInterface::minBankPrep(const MemPacketQueue& queue,
 
                 // latest Tick for which ACT can occur without
                 // incurring additoinal delay on the data bus
-                const Tick tRCD = ctrl->inReadBusState(false) ?
-                                                 tRCD_RD : tRCD_WR;
+                const Tick tRCD = ctrl->inReadBusState(false,
+                                    (MemInterface*)(this)) ? tRCD_RD : tRCD_WR;
                 const Tick hidden_act_max =
                             std::max(min_col_at - tRCD, curTick());
 
                 // When is the earliest the R/W burst can issue?
-                const Tick col_allowed_at = ctrl->inReadBusState(false) ?
+                const Tick col_allowed_at = ctrl->inReadBusState(false,
+                                              (MemInterface*)(this)) ?
                                               ranks[i]->banks[j].rdAllowedAt :
                                               ranks[i]->banks[j].wrAllowedAt;
                 Tick col_at = std::max(col_allowed_at, act_at + tRCD);
@@ -1180,10 +1183,10 @@ bool
 DRAMInterface::Rank::isQueueEmpty() const
 {
     // check commmands in Q based on current bus direction
-    bool no_queued_cmds = (dram.ctrl->inReadBusState(true) &&
-                          (readEntries == 0))
-                       || (dram.ctrl->inWriteBusState(true) &&
-                          (writeEntries == 0));
+    bool no_queued_cmds = (dram.ctrl->inReadBusState(true,
+                          (MemInterface*)(this)) && (readEntries == 0)) ||
+                          (dram.ctrl->inWriteBusState(true,
+                          (MemInterface*)(this)) && (writeEntries == 0));
     return no_queued_cmds;
 }
 
@@ -1313,6 +1316,7 @@ DRAMInterface::Rank::processRefreshEvent()
             DPRINTF(DRAM, "Refresh awaiting draining\n");
             return;
         } else {
+            DPRINTF(DRAM, "ELSE of Refresh awaiting draining\n");
             refreshState = REF_PD_EXIT;
         }
     }
@@ -1327,12 +1331,14 @@ DRAMInterface::Rank::processRefreshEvent()
             scheduleWakeUpEvent(dram.tXP);
             return;
         } else {
+            DPRINTF(DRAM, "ELSE of Wake Up for refresh\n");
             refreshState = REF_PRE;
         }
     }
 
     // at this point, ensure that all banks are precharged
     if (refreshState == REF_PRE) {
+        DPRINTF(DRAM, "REF_PRE\n");
         // precharge any active bank
         if (numBanksActive != 0) {
             // at the moment, we use a precharge all even if there is
@@ -1377,6 +1383,7 @@ DRAMInterface::Rank::processRefreshEvent()
             // we are already idle
             schedulePowerEvent(PWR_REF, curTick());
         } else {
+            DPRINTF(DRAM, "banks state is closed but... %d  %d\n", prechargeEvent.scheduled(), dram.ctrl->respondEventScheduled());
             // banks state is closed but haven't transitioned pwrState to IDLE
             // or have outstanding ACT,RD/WR,Auto-PRE sequence scheduled
             // should have outstanding precharge or read response event
@@ -1669,7 +1676,7 @@ DRAMInterface::Rank::processPowerEvent()
         // completed refresh event, ensure next request is scheduled
         if (!(dram.ctrl->requestEventScheduled(dram.pseudoChannel))) {
             DPRINTF(DRAM, "Scheduling next request after refreshing"
-                           " rank %d\n", rank);
+                           " rank %d, PC %d \n", rank, dram.pseudoChannel);
             dram.ctrl->restartScheduler(curTick(), dram.pseudoChannel);
         }
     }
@@ -1831,7 +1838,8 @@ DRAMInterface::Rank::resetStats() {
 bool
 DRAMInterface::Rank::forceSelfRefreshExit() const {
     return (readEntries != 0) ||
-           (dram.ctrl->inWriteBusState(true) && (writeEntries != 0));
+           (dram.ctrl->inWriteBusState(true, (MemInterface*)(this))
+           && (writeEntries != 0));
 }
 
 void
@@ -2025,6 +2033,102 @@ DRAMInterface::RankStats::preDumpStats()
     statistics::Group::preDumpStats();
 
     rank.computeStats();
+}
+
+DRAMAlloyInterface::DRAMAlloyInterface(const DRAMAlloyInterfaceParams &_p)
+    : DRAMInterface(_p)
+{
+    
+}
+
+
+MemPacket*
+DRAMAlloyInterface::decodePacket(const PacketPtr pkt, Addr pkt_addr,
+                       unsigned size, bool is_read, uint8_t pseudo_channel)
+{
+    // decode the address based on the address mapping scheme, with
+    // Ro, Ra, Co, Ba and Ch denoting row, rank, column, bank and
+    // channel, respectively
+    uint8_t rank;
+    uint8_t bank;
+    // use a 64-bit unsigned during the computations as the row is
+    // always the top bits, and check before creating the packet
+    uint64_t row;
+
+    Addr orig_addr = pkt_addr;
+
+    pkt_addr = ((pkt_addr / 64) * 8) + pkt_addr;
+    // Get packed address, starting at 0
+    Addr addr = getCtrlAddr(pkt_addr);
+
+    // truncate the address to a memory burst, which makes it unique to
+    // a specific buffer, row, bank, rank and channel
+    addr = addr / burstSize;
+
+    // we have removed the lowest order address bits that denote the
+    // position within the column
+    if (addrMapping == enums::RoRaBaChCo || addrMapping == enums::RoRaBaCoCh) {
+        // the lowest order bits denote the column to ensure that
+        // sequential cache lines occupy the same row
+        addr = addr / burstsPerRowBuffer;
+
+        // after the channel bits, get the bank bits to interleave
+        // over the banks
+        bank = addr % banksPerRank;
+        addr = addr / banksPerRank;
+
+        // after the bank, we get the rank bits which thus interleaves
+        // over the ranks
+        rank = addr % ranksPerChannel;
+        addr = addr / ranksPerChannel;
+
+        // lastly, get the row bits, no need to remove them from addr
+        row = addr % rowsPerBank;
+    } else if (addrMapping == enums::RoCoRaBaCh) {
+        // with emerging technologies, could have small page size with
+        // interleaving granularity greater than row buffer
+        if (burstsPerStripe > burstsPerRowBuffer) {
+            // remove column bits which are a subset of burstsPerStripe
+            addr = addr / burstsPerRowBuffer;
+        } else {
+            // remove lower column bits below channel bits
+            addr = addr / burstsPerStripe;
+        }
+
+        // start with the bank bits, as this provides the maximum
+        // opportunity for parallelism between requests
+        bank = addr % banksPerRank;
+        addr = addr / banksPerRank;
+
+        // next get the rank bits
+        rank = addr % ranksPerChannel;
+        addr = addr / ranksPerChannel;
+
+        // next, the higher-order column bites
+        if (burstsPerStripe < burstsPerRowBuffer) {
+            addr = addr / (burstsPerRowBuffer / burstsPerStripe);
+        }
+
+        // lastly, get the row bits, no need to remove them from addr
+        row = addr % rowsPerBank;
+    } else
+        panic("Unknown address mapping policy chosen!");
+
+    assert(rank < ranksPerChannel);
+    assert(bank < banksPerRank);
+    assert(row < rowsPerBank);
+    assert(row < Bank::NO_ROW);
+
+    DPRINTF(DecodePkt, "%d --> %d --> Rank %d Bank %d Row %d\n",
+            orig_addr, pkt_addr, rank, bank, row);
+
+    // create the corresponding memory packet with the entry time and
+    // ready time set to the current tick, the latter will be updated
+    // later
+    uint16_t bank_id = banksPerRank * rank + bank;
+
+    return new MemPacket(pkt, is_read, true, pseudo_channel, rank, bank, row,
+                   bank_id, orig_addr, size);
 }
 
 } // namespace memory

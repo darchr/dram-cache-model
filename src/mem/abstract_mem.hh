@@ -271,7 +271,7 @@ class AbstractMemory : public ClockedObject
      * object graph. An init() this is set.
      * @param sys system pointer to set
      */
-    void system(System *sys) { _system = sys; }
+    void system(System *sys) { std::cout << "here\n"; _system = sys; }
 
     /**
      * Get the address range

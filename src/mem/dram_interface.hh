@@ -49,6 +49,7 @@
 #include "mem/drampower.hh"
 #include "mem/mem_interface.hh"
 #include "params/DRAMInterface.hh"
+#include "params/DRAMAlloyInterface.hh"
 
 namespace gem5
 {
@@ -790,6 +791,19 @@ class DRAMInterface : public MemInterface
     bool writeRespQueueFull() const override { return false;}
 
     DRAMInterface(const DRAMInterfaceParams &_p);
+};
+
+class DRAMAlloyInterface : public DRAMInterface
+{
+  public:
+
+    DRAMAlloyInterface(const DRAMAlloyInterfaceParams &_p);
+
+    uint32_t bytesPerBurst() const override { return burstSize-16; }
+
+    MemPacket* decodePacket(const PacketPtr pkt, Addr pkt_addr,
+                            unsigned int size, bool is_read,
+                            uint8_t pseudo_channel = 0) override;
 };
 
 } // namespace memory
