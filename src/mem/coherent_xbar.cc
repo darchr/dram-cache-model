@@ -291,7 +291,6 @@ CoherentXBar::recvTimingReq(PacketPtr pkt, PortID cpu_side_port_id)
 
             // since it is a normal request, attempt to send the packet
             success = memSidePorts[mem_side_port_id]->sendTimingReq(pkt);
-            // std::cout << "4: " << pkt->getAddr() << " : " << xbar_delay << "\n";
         } else {
             // no need to forward, turn this packet around and respond
             // directly
@@ -440,7 +439,6 @@ CoherentXBar::recvTimingReq(PacketPtr pkt, PortID cpu_side_port_id)
 
         cpuSidePorts[rsp_port_id]->schedTimingResp(rsp_pkt, response_time);
 
-        // std::cout << "1: " << pkt->getAddr() << " : " << response_time-clockEdge() << "\n";
     }
     return success;
 }
@@ -494,8 +492,6 @@ CoherentXBar::recvTimingResp(PacketPtr pkt, PortID mem_side_port_id)
     pkt->headerDelay = 0;
     cpuSidePorts[cpu_side_port_id]->schedTimingResp(pkt, curTick()
                                         + latency);
-    // std::cout << "2: " << pkt->getAddr() << " : " << latency << "\n";
-
     // remove the request from the routing table
     routeTo.erase(route_lookup);
 
@@ -683,8 +679,6 @@ CoherentXBar::recvTimingSnoopResp(PacketPtr pkt, PortID cpu_side_port_id)
         pkt->headerDelay = 0;
         cpuSidePorts[dest_port_id]->schedTimingResp(pkt,
                                     curTick() + latency);
-        // std::cout << "3: " << pkt->getAddr() << " : " << latency << "\n";
-
         respLayers[dest_port_id]->succeededTiming(packetFinishTime);
     }
 
