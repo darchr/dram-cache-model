@@ -275,6 +275,55 @@ class MemCtrl : public ClockedObject
      */
     BusState getBusState() const { return busState; }
 
+    /**some virtual functions
+     * that will be implemented in the mem
+     * controllers
+     */
+    virtual Tick verifyMultiCmd(Tick cmd_tick, Tick max_cmds_per_burst,
+            Tick max_multi_cmd_split = 0) {
+                panic("QoS::MemCtrl verifyMultiCmd should not be called \n");
+                return curTick();
+        };
+
+    virtual Tick verifySingleCmd(Tick cmd_tick, Tick max_cmds_per_burst) {
+                panic("QoS::MemCtrl verifySingleCmd should not be called \n");
+                return curTick();
+        };
+
+    virtual bool inReadBusState(bool next_state) const {
+                panic("QoS::MemCtrl inReadBusState should not be called \n");
+                return false;
+        };
+
+    virtual bool inWriteBusState(bool next_state) const {
+                panic("QoS::MemCtrl inWriteBusState should not be called \n");
+                return false;
+        };
+
+    virtual bool requestEventScheduled() const {
+            panic("QoS::MemCtrl requestEventScheduled wrongly called \n");
+                return false;
+        };
+
+    virtual bool respondEventScheduled() const {
+            panic("QoS::MemCtrl respondEventScheduled wrongly called \n");
+                return false;
+        };
+
+    virtual void restartScheduler(Tick tick) {
+            panic("QoS::MemCtrl restartScheduler should not be called \n");
+        };
+
+    virtual void restartDramReadScheduler(Tick tick) {
+            panic("QoS::MemCtrl restartDramReadScheduler "
+            "should not be called \n");
+        };
+
+    virtual void restartDramWriteScheduler(Tick tick) {
+            panic("QoS::MemCtrl restartDramWriteScheduler "
+            "should not be called \n");
+        };
+
     /**
      * Gets the next bus state
      *
