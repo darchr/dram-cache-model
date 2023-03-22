@@ -1,6 +1,6 @@
 # A Cycle-level Unified DRAM Cache Controller Model
 
-This branch contains code associated to the paper titled "A Cycle-level Unified DRAM Cache Controller Model".
+This branch contains code associated to the paper titled "A Cycle-level Unified DRAM Cache Controller Model for 3DXPoint Memory Systems in gem5".
 
 This unified DRAM cache controller (UDCC) model is a cycle-level DRAM cache model for gem5 and takes inspiration from
 the actual hardware providing DRAM cache, such as Intel’s Cascade Lake, in which an NVRAM accompanies a DRAM cache as the off-chip main 
