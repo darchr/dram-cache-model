@@ -1,7 +1,6 @@
 # Enabling Design Space Exploration of DRAM Caches in Emerging Memory Systems
 
-This branch of the dram-cache-model repo contains gem5 DRAM cache model associated to the paper titled "Enabling Design Space Exploration of DRAM
-Caches in Emerging Memory Systems". This cycle-level DRAM cache model can used for evaluation of heterogeneous and disaggregated memory systems which 
+This branch of the dram-cache-model repo contains gem5 DRAM cache model associated to the paper titled "Enabling Design Space Exploration of DRAM Caches in Emerging Memory Systems". This cycle-level DRAM cache model can used for evaluation of heterogeneous and disaggregated memory systems which 
 employ hardware managed DRAM caches. 
 
 This model relies on the following components:
