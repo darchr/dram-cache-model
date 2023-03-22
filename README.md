@@ -11,5 +11,7 @@ This model relies on the following components:
 
 This is a flexible and discrete DRAM cache model and does not require the near and far memory to share the same data bus.
 
+For testing, you can look at the sample script: disaggregated_dram_cache_script.py
+
 
 
